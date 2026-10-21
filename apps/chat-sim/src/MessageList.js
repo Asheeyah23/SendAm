@@ -1,5 +1,76 @@
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+/**
+ * Normalize a WhatsApp interactive list message out of a bot message, or
+ * return null when the message isn't one.
+ *
+ * Accepted shapes, in order:
+ *   - `message.interactive` — the WhatsApp Cloud API payload:
+ *     `{ type: 'list', body: { text }, action: { button, sections } }`
+ *   - `message.listMessage` — the same thing minus the Cloud API nesting:
+ *     `{ body, buttonLabel, sections }`
+ *   - `message.text` that *is* one of the above as a JSON string. The sim
+ *     pipeline only carries reply strings (see sim.controller.js), so this is
+ *     how a list message actually travels through the simulator today.
+ *
+ * The result is `{ body, buttonLabel, sections: [{ id, title, rows }] }` with
+ * every row shaped `{ id, title, description }`. Sections without usable rows
+ * are dropped; a list with no rows left is not a list message.
+ */
+export function parseListMessage(message) {
+  if (!message || message.sender !== 'bot') return null;
+
+  let source = null;
+  if (message.interactive && typeof message.interactive === 'object') {
+    source = message.interactive;
+  } else if (message.listMessage && typeof message.listMessage === 'object') {
+    source = { type: 'list', ...message.listMessage };
+  } else {
+    const text = String(message.text || '').trim();
+    if (text.startsWith('{') && text.includes('sections')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === 'object') {
+          source = parsed.interactive && typeof parsed.interactive === 'object'
+            ? parsed.interactive
+            : parsed;
+        }
+      } catch {
+        return null;
+      }
+    }
+  }
+  if (!source || (source.type && source.type !== 'list')) return null;
+
+  const action = source.action && typeof source.action === 'object' ? source.action : source;
+  const rawSections = Array.isArray(action.sections) ? action.sections : [];
+  const sections = rawSections
+    .map((section, sectionIndex) => ({
+      id: `section-${sectionIndex}`,
+      title: typeof section?.title === 'string' ? section.title : '',
+      rows: (Array.isArray(section?.rows) ? section.rows : [])
+        .map((row, rowIndex) => ({
+          id: String(row?.id || `row-${sectionIndex}-${rowIndex}`),
+          title: typeof row?.title === 'string' ? row.title : '',
+          description: typeof row?.description === 'string' ? row.description : '',
+        }))
+        .filter((row) => row.title),
+    }))
+    .filter((section) => section.rows.length > 0);
+  if (sections.length === 0) return null;
+
+  const bodyText =
+    typeof source.body === 'string' ? source.body : source.body?.text;
+  return {
+    body: typeof bodyText === 'string' ? bodyText : '',
+    buttonLabel:
+      (typeof action.button === 'string' && action.button) ||
+      (typeof source.buttonLabel === 'string' && source.buttonLabel) ||
+      'Menu',
+    sections,
+  };
+}
+
 export function parseQuickReplies(message) {
   if (!message || message.sender !== 'bot') return [];
   if (Array.isArray(message.quickReplies) && message.quickReplies.length > 0) {
@@ -55,6 +126,7 @@ export function parseQuickReplies(message) {
 export default function MessageList({
   messages,
   onQuickReply,
+  onOpenList,
   disabledReplies = {},
   sending = false,
 }) {
@@ -62,7 +134,9 @@ export default function MessageList({
     <ScrollView contentContainerClassName="px-3 py-2 gap-2">
       {messages.map((item) => {
         const isUser = item.sender === 'user';
-        const quickReplies = !isUser ? parseQuickReplies(item) : [];
+        const listMessage = !isUser ? parseListMessage(item) : null;
+        // A list message's text is its payload, not a menu to regex-scan.
+        const quickReplies = !isUser && !listMessage ? parseQuickReplies(item) : [];
         const isMsgDisabled = Boolean(disabledReplies[item.id]) || sending;
 
         return (
@@ -75,7 +149,29 @@ export default function MessageList({
                   : 'self-start bg-gray-200 rounded-2xl px-3 py-2 max-w-[80%]'
               }
             >
-              <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+              {listMessage ? (
+                <View className="gap-1.5">
+                  <Text className="text-gray-900">
+                    {listMessage.body || 'Choose an option'}
+                  </Text>
+                  <View className="border-t border-gray-300" />
+                  <Pressable
+                    testID={`list-message-button-${item.id}`}
+                    accessibilityRole="button"
+                    disabled={isMsgDisabled}
+                    onPress={() => onOpenList && onOpenList(listMessage, item.id)}
+                    className={`flex-row items-center justify-center gap-1.5 py-1 ${
+                      isMsgDisabled ? 'opacity-50' : 'active:opacity-70'
+                    }`}
+                  >
+                    <Text className="text-sm font-semibold text-sky-600">
+                      ☰ {listMessage.buttonLabel}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+              )}
             </View>
 
             {/* WhatsApp interactive quick-reply pill buttons */}
