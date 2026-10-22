@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import QRCode from '@ttsalpha/qrcode';
 import {
   Animated,
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -18,6 +21,7 @@ import {
 } from './engine/paymentStateMachine';
 import { voiceService } from './engine/voiceService';
 import { API_BASE_URL } from './config';
+import { buildSep7PaymentUri, isValidSep7Uri, normalizeSep7Uri } from './paymentRequest';
 
 export function formatTranscriptText(messages, phoneNumber) {
   const lines = [
@@ -131,6 +135,10 @@ export default function ChatScreen() {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const recordTimerRef = useRef(null);
   const [disabledReplies, setDisabledReplies] = useState({});
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [paymentLink, setPaymentLink] = useState('');
+  const [qrError, setQrError] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState(null);
   const [captionText, setCaptionText] = useState('');
@@ -447,6 +455,47 @@ export default function ChatScreen() {
     }
   }
 
+  function handleOpenQrModal() {
+    const context = machineSnapshot.context;
+    const generatedUri = buildSep7PaymentUri({
+      destination: context.recipient,
+      amount: context.amount,
+      asset: context.asset,
+    });
+    if (generatedUri) setPaymentLink(generatedUri);
+    setQrError('');
+    setCopyStatus('');
+    setQrModalVisible(true);
+  }
+
+  function handlePaymentLinkChange(value) {
+    setPaymentLink(value);
+    setQrError('');
+    setCopyStatus('');
+  }
+
+  async function handleCopyPaymentLink() {
+    const uri = normalizeSep7Uri(paymentLink);
+    if (!uri) {
+      setQrError('Enter a valid SEP-0007 web+stellar payment or transaction URI first.');
+      return;
+    }
+
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(uri);
+        setCopyStatus('Payment link copied to clipboard.');
+        setQrError('');
+      } catch {
+        setQrError('Clipboard access was blocked. Select the link below and copy it manually.');
+      }
+      return;
+    }
+
+    setCopyStatus('Long-press the link below to copy it on this device.');
+    Alert.alert('Copy payment link', 'Long-press the payment link below to select and copy it.');
+  }
+
   function handleExportTxt() {
     const content = formatTranscriptText(messages, phoneNumber);
     const cleanPhone = (phoneNumber || 'session').replace(/[^a-zA-Z0-9]/g, '_');
@@ -626,6 +675,15 @@ export default function ChatScreen() {
         </View>
       )}
 
+      <View className="flex-row items-center justify-end px-3 py-2 border-t border-gray-200 bg-emerald-50">
+        <Pressable
+          testID="show-qr-code-button"
+          className="rounded-lg border border-emerald-600 bg-white px-3 py-2"
+          onPress={handleOpenQrModal}
+        >
+          <Text className="text-sm font-semibold text-emerald-700">Show QR Code</Text>
+        </Pressable>
+      </View>
       {/* Hidden file inputs for web/mobile browsers */}
       {typeof document !== 'undefined' && (
         <View style={{ display: 'none' }}>
@@ -872,6 +930,79 @@ export default function ChatScreen() {
           </Text>
         </Pressable>
       </View>
+
+      <Modal
+        visible={qrModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrModalVisible(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 px-4">
+          <View className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <Text className="text-lg font-bold text-gray-900">Payment request QR code</Text>
+            <Text className="mt-1 text-sm text-gray-600">
+              Paste a SEP-0007 web+stellar URI. The QR encodes the link only; it does not submit a payment.
+            </Text>
+            <TextInput
+              testID="payment-link-input"
+              className="mt-4 min-h-20 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+              placeholder="web+stellar:pay?destination=...&amount=..."
+              value={paymentLink}
+              onChangeText={handlePaymentLinkChange}
+              multiline
+              autoCapitalize="none"
+              autoCorrect={false}
+              textAlignVertical="top"
+            />
+            {qrError ? (
+              <Text testID="qr-error" accessibilityRole="alert" className="mt-2 text-sm text-red-600">
+                {qrError}
+              </Text>
+            ) : null}
+            {isValidSep7Uri(paymentLink) ? (
+              Platform.OS === 'web' ? (
+                <View testID="payment-qr-code" className="mt-4 items-center rounded-lg bg-white p-3">
+                  <QRCode value={normalizeSep7Uri(paymentLink)} size={240} ariaLabel="SEP-0007 payment request QR code" />
+                </View>
+              ) : (
+                <Text className="mt-3 text-sm text-gray-600">
+                  Open the chat simulator in a web browser to display the scannable SVG QR code.
+                </Text>
+              )
+            ) : (
+              <Text className="mt-3 text-sm text-gray-500">
+                A QR code appears here when the URI includes a valid pay destination or transaction XDR.
+              </Text>
+            )}
+            <Text
+              testID="payment-link-preview"
+              selectable
+              className="mt-3 text-xs text-gray-600"
+            >
+              {normalizeSep7Uri(paymentLink)}
+            </Text>
+            {copyStatus ? (
+              <Text accessibilityLiveRegion="polite" className="mt-2 text-sm text-emerald-700">{copyStatus}</Text>
+            ) : null}
+            <View className="mt-4 flex-row gap-2">
+              <Pressable
+                testID="copy-payment-link-button"
+                className="flex-1 items-center rounded-lg bg-emerald-600 px-3 py-2"
+                onPress={handleCopyPaymentLink}
+              >
+                <Text className="font-semibold text-white">Copy Payment Link</Text>
+              </Pressable>
+              <Pressable
+                testID="close-qr-modal-button"
+                className="items-center rounded-lg border border-gray-300 px-3 py-2"
+                onPress={() => setQrModalVisible(false)}
+              >
+                <Text className="font-semibold text-gray-700">Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
