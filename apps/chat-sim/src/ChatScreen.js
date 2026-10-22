@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from '@ttsalpha/qrcode';
 import {
+  Alert,
   Animated,
   Alert,
   KeyboardAvoidingView,
@@ -192,7 +193,8 @@ export default function ChatScreen() {
     setPhoneNumber(trimmed);
   }
 
-  function handleReset() {
+  function performReset() {
+    stateMachine.transition(PaymentEvent.RESET);
     setPhoneNumber(null);
     setPhoneInput('');
     setMessages([]);
@@ -248,6 +250,31 @@ export default function ChatScreen() {
     if (photoInputRef.current) photoInputRef.current.value = '';
     if (docInputRef.current) docInputRef.current.value = '';
     setReplyTo(null);
+  }
+
+  function handleReset() {
+    const confirmationMessage =
+      'Clear chat history and reset payment state machine?';
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.confirm) {
+      if (window.confirm(confirmationMessage)) {
+        performReset();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Reset Conversation',
+      confirmationMessage,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: performReset,
+        },
+      ]
+    );
   }
 
   function handleQuickReply(payload, messageId) {
@@ -596,7 +623,7 @@ export default function ChatScreen() {
             className="border border-gray-300 rounded-lg px-3 py-1"
             onPress={handleReset}
           >
-            <Text className="text-sm font-semibold text-gray-700">Switch Account</Text>
+            <Text className="text-sm font-semibold text-gray-700">Reset</Text>
           </Pressable>
         </View>
       </View>
