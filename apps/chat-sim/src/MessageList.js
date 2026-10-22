@@ -215,12 +215,45 @@ function SwipeableBubble({ item, isUser, onReply, searchQuery, isActiveMatch }) 
               </Text>
             </View>
           )}
-          <MessageText
-            item={item}
-            isUser={isUser}
-            searchQuery={searchQuery}
-            isActiveMatch={isActiveMatch}
-          />
+          {item.attachment && (
+            <View testID="media-card" className="mb-2 rounded-lg overflow-hidden bg-black/10 p-1">
+              {item.attachment.type === 'photo' && item.attachment.uri ? (
+                <View testID="media-photo-container" className="rounded overflow-hidden">
+                  {/* Thumbnail preview */}
+                  <img
+                    src={item.attachment.uri}
+                    alt={item.attachment.name || 'Photo attachment'}
+                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }}
+                  />
+                </View>
+              ) : (
+                <View testID="media-doc-container" className="flex-row items-center gap-2 p-2 bg-white/20 rounded">
+                  <Text className="text-xl">📄</Text>
+                  <View className="flex-1">
+                    <Text
+                      numberOfLines={1}
+                      className={`text-xs font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {item.attachment.name || 'Document'}
+                    </Text>
+                    {item.attachment.size ? (
+                      <Text className={`text-[10px] ${isUser ? 'text-white/80' : 'text-gray-600'}`}>
+                        {item.attachment.size}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+          {Boolean(item.text) && (
+            <MessageText
+              item={item}
+              isUser={isUser}
+              searchQuery={searchQuery}
+              isActiveMatch={isActiveMatch}
+            />
+          )}
         </View>
       </Animated.View>
       {swiping && (
@@ -283,54 +316,6 @@ export default function MessageList({
               rowPositionsRef.current[item.id] = e.nativeEvent.layout.y;
             }}
           >
-            <View
-              testID={`bubble-${item.sender}`}
-              className={
-                isUser
-                  ? 'self-end bg-green-500 rounded-2xl px-3 py-2 max-w-[80%]'
-                  : 'self-start bg-gray-200 rounded-2xl px-3 py-2 max-w-[80%]'
-              }
-            >
-              {item.attachment && (
-                <View testID="media-card" className="mb-2 rounded-lg overflow-hidden bg-black/10 p-1">
-                  {item.attachment.type === 'photo' && item.attachment.uri ? (
-                    <View testID="media-photo-container" className="rounded overflow-hidden">
-                      {/* Thumbnail preview */}
-                      <img
-                        src={item.attachment.uri}
-                        alt={item.attachment.name || 'Photo attachment'}
-                        style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }}
-                      />
-                    </View>
-                  ) : (
-                    <View testID="media-doc-container" className="flex-row items-center gap-2 p-2 bg-white/20 rounded">
-                      <Text className="text-xl">📄</Text>
-                      <View className="flex-1">
-                        <Text
-                          numberOfLines={1}
-                          className={`text-xs font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}
-                        >
-                          {item.attachment.name || 'Document'}
-                        </Text>
-                        {item.attachment.size ? (
-                          <Text className={`text-[10px] ${isUser ? 'text-white/80' : 'text-gray-600'}`}>
-                            {item.attachment.size}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              )}
-              {Boolean(item.text) && (
-                <MessageText
-                  item={item}
-                  isUser={isUser}
-                  searchQuery={searchQuery}
-                  isActiveMatch={isActiveMatch}
-                />
-              )}
-            </View>
             <SwipeableBubble
               item={item}
               isUser={isUser}
