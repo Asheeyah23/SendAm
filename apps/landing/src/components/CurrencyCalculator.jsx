@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, useId } from 'react';
-import { AlertTriangle, ArrowRight, CheckCircle2, TrendingDown, RefreshCw, Zap } from 'lucide-react';
-import { useState, useId } from 'react';
-import { ArrowRight, ArrowLeftRight, CheckCircle2, ChevronDown, TrendingDown, RefreshCw, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  ArrowLeftRight,
+  CheckCircle2,
+  ChevronDown,
+  TrendingDown,
+  RefreshCw,
+  Zap,
+} from 'lucide-react';
 import { whatsappUrl } from '@/lib/links.js';
 import {
   SOURCE_CURRENCIES,

@@ -143,6 +143,9 @@ describe('ReserveAllocationGauge – populated', () => {
     const bars = screen.getAllByRole('progressbar');
     expect(bars).toHaveLength(1);
     expect(bars[0].getAttribute('aria-valuenow')).toBe('100');
+  });
+});
+
 const walletsResponse = (data) => HttpResponse.json({
   data,
   pagination: { limit: 50, nextCursor: null, prevCursor: null, hasMore: false, total: data.length },
