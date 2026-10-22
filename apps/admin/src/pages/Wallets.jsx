@@ -74,7 +74,7 @@ function ReserveAllocationGauge({ wallets }) {
         aria-label="Reserve ratio across custody tiers"
       >
         {isEmpty ? (
-          <div className="flex-1 bg-gray-200 rounded-full" aria-label="No wallets loaded" />
+          <div className="flex-1 bg-gray-200 rounded-full" role="img" aria-label="No wallets loaded" />
         ) : (
           counts.map((tier) => {
             const pct = total > 0 ? Math.round((tier.count / total) * 100) : 0;

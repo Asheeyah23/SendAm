@@ -289,7 +289,7 @@ describe('admin WCAG 2.2 AAA audit', () => {
       const user = userEvent.setup();
       const { container } = renderAt('/users');
       await screen.findByRole('table');
-      const row = screen.getByText('+1234567890').closest('tr');
+      const row = screen.getByText(maskPhoneNumber('+1234567890')).closest('tr');
       await user.click(within(row).getByRole('button', { name: /^deactivate$/i }));
       const dialog = await screen.findByRole('dialog');
       await user.click(within(dialog).getByRole('button', { name: /confirm deactivation/i }));
