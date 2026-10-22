@@ -147,7 +147,8 @@ describe('CurrencyCalculator Component', () => {
 
     // 153,450 - 1% = 151,915.5 NGN at 1/1550 = 98.01 USD
     expect(screen.getByText(/1 NGN = 0\.000645 USD/i)).toBeInTheDocument();
-    expect(screen.getByText(/98\.01/)).toBeInTheDocument();
+    // The converted amount also appears in the fee breakdown, so match any.
+    expect(screen.getAllByText(/98\.01/).length).toBeGreaterThan(0);
   });
 
   it('round-trips the corridor back to the original direction', () => {

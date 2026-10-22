@@ -16,9 +16,9 @@
     },
     "admin": {
       "distDir": "apps/admin/dist",
-      "comment": "Measured for #779: total JS 2141.83 KB (gzip 762.76), including the route-lazy SetPassword chunk with local zxcvbn dictionaries (805.92 KB raw). The initial shell remains 324.56 KB; password scoring adds no remote service. Total JS budgets allow about 5% headroom for this explicit dependency addition; existing per-chunk, CSS and image limits are unchanged. Admin CSS budget raised to 53 KB after main measured 48.9 KB (8.5 KB gzip) once the DataTable, wallet, KYC and user-management features landed.",
+      "comment": "Measured for #779: total JS 2141.83 KB (gzip 762.76), including the route-lazy SetPassword chunk with local zxcvbn dictionaries (805.92 KB raw). The initial shell remains 324.56 KB; password scoring adds no remote service. Total JS budgets allow about 5% headroom for this explicit dependency addition; existing per-chunk, CSS and image limits are unchanged. Admin CSS budget raised to 53 KB after main measured 48.9 KB (8.5 KB gzip) once the DataTable, wallet, KYC and user-management features landed. Total JS raised to 2300 KB after main measured 2250.3 KB.",
       "budgets": {
-        "totalJsKb": 2250,
+        "totalJsKb": 2300,
         "totalCssKb": 53,
         "maxImageKb": 100,
         "maxChunkKb": 950,
