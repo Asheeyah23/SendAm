@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 
 const WAVEFORM_BARS = [8, 14, 20, 12, 24, 18, 10, 22, 26, 16, 20, 14, 18, 10, 16, 12, 22, 14, 8];
 
@@ -119,8 +119,6 @@ function VoiceBubble({ item, isUser }) {
     </View>
   );
 }
-import { useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 
 const SWIPE_REPLY_THRESHOLD = 56;
 const MAX_SWIPE_DISTANCE = 96;
@@ -189,6 +187,7 @@ function pointFromEvent(event) {
 // Swiping reveals a reply arrow; releasing past the threshold notifies the
 // parent and springs the bubble back into place.
 function SwipeableBubble({ item, isUser, onReply }) {
+  const isVoice = item.type === 'voice' || item.isVoice;
   const translateX = useRef(new Animated.Value(0)).current;
   const startX = useRef(0);
   const startY = useRef(0);
@@ -272,7 +271,44 @@ function SwipeableBubble({ item, isUser, onReply }) {
               </Text>
             </View>
           )}
-          <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+          {item.attachment && (
+            <View testID="media-card" className="mb-2 rounded-lg overflow-hidden bg-black/10 p-1">
+              {item.attachment.type === 'photo' && item.attachment.uri ? (
+                <View testID="media-photo-container" className="rounded overflow-hidden">
+                  {/* Thumbnail preview */}
+                  <img
+                    src={item.attachment.uri}
+                    alt={item.attachment.name || 'Photo attachment'}
+                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }}
+                  />
+                </View>
+              ) : (
+                <View testID="media-doc-container" className="flex-row items-center gap-2 p-2 bg-white/20 rounded">
+                  <Text className="text-xl">📄</Text>
+                  <View className="flex-1">
+                    <Text
+                      numberOfLines={1}
+                      className={`text-xs font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}
+                    >
+                      {item.attachment.name || 'Document'}
+                    </Text>
+                    {item.attachment.size ? (
+                      <Text className={`text-[10px] ${isUser ? 'text-white/80' : 'text-gray-600'}`}>
+                        {item.attachment.size}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+          {isVoice ? (
+            <VoiceBubble item={item} isUser={isUser} />
+          ) : (
+            Boolean(item.text) && (
+              <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+            )
+          )}
         </View>
       </Animated.View>
       {swiping && (
@@ -306,69 +342,11 @@ export default function MessageList({
     <ScrollView contentContainerClassName="px-3 py-2 gap-2">
       {messages.map((item) => {
         const isUser = item.sender === 'user';
-        const isVoice = item.type === 'voice' || item.isVoice;
-        return (
-          <View
-            key={item.id}
-            testID={`bubble-${item.sender}`}
-            className={
-              isUser
-                ? 'self-end bg-green-500 rounded-2xl px-3 py-2 max-w-[85%]'
-                : 'self-start bg-gray-200 rounded-2xl px-3 py-2 max-w-[85%]'
-            }
-          >
-            {isVoice ? (
-              <VoiceBubble item={item} isUser={isUser} />
-            ) : (
-              <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
         const quickReplies = !isUser ? parseQuickReplies(item) : [];
         const isMsgDisabled = Boolean(disabledReplies[item.id]) || sending;
 
         return (
           <View key={item.id} className="gap-1.5">
-            <View
-              testID={`bubble-${item.sender}`}
-              className={
-                isUser
-                  ? 'self-end bg-green-500 rounded-2xl px-3 py-2 max-w-[80%]'
-                  : 'self-start bg-gray-200 rounded-2xl px-3 py-2 max-w-[80%]'
-              }
-            >
-              {item.attachment && (
-                <View testID="media-card" className="mb-2 rounded-lg overflow-hidden bg-black/10 p-1">
-                  {item.attachment.type === 'photo' && item.attachment.uri ? (
-                    <View testID="media-photo-container" className="rounded overflow-hidden">
-                      {/* Thumbnail preview */}
-                      <img
-                        src={item.attachment.uri}
-                        alt={item.attachment.name || 'Photo attachment'}
-                        style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8 }}
-                      />
-                    </View>
-                  ) : (
-                    <View testID="media-doc-container" className="flex-row items-center gap-2 p-2 bg-white/20 rounded">
-                      <Text className="text-xl">📄</Text>
-                      <View className="flex-1">
-                        <Text
-                          numberOfLines={1}
-                          className={`text-xs font-semibold ${isUser ? 'text-white' : 'text-gray-900'}`}
-                        >
-                          {item.attachment.name || 'Document'}
-                        </Text>
-                        {item.attachment.size ? (
-                          <Text className={`text-[10px] ${isUser ? 'text-white/80' : 'text-gray-600'}`}>
-                            {item.attachment.size}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              )}
-              {Boolean(item.text) && (
-                <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
-              )}
-            </View>
             <SwipeableBubble item={item} isUser={isUser} onReply={onReply} />
 
             {/* WhatsApp interactive quick-reply pill buttons */}
