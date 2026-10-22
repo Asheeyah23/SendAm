@@ -9,6 +9,7 @@ import {
   PRESET_AMOUNTS,
   getExchangeRate,
 } from '@/lib/currencyConstants.js';
+import { calculateQuote, SENDAM_FEE_BPS, TRADITIONAL_FEE_BPS } from '@/lib/currencyCalculator.js';
 
 // How long a quoted rate is shown before the calculator refreshes it, and how
 // old it may grow before users are warned instead of silently shown it.
@@ -54,17 +55,21 @@ export default function CurrencyCalculator() {
   const targetSelectId = useId();
   const breakdownId = useId();
 
-  const parsedAmount = Math.max(0, parseFloat(amount) || 0);
+  // Fixed-point quote (7 decimals); see src/lib/currencyCalculator.js.
+  const quote = calculateQuote({ amount, sourceCurrency, targetCurrency, rates: EXCHANGE_RATES });
+  const parsedAmount = Number(quote.amount);
 
-  // SendAm fee is flat 1%
-  const sendAmFeePercent = 1;
-  const sendAmFee = parsedAmount * 0.01;
-  const netSendAmount = Math.max(0, parsedAmount - sendAmFee);
+  // SendAm fee is flat 1%; traditional wires typically charge 6% to 8%.
+  const sendAmFeePercent = Number(SENDAM_FEE_BPS) / 100;
+  const sendAmFee = Number(quote.fee);
+  const traditionalFeePercent = Number(TRADITIONAL_FEE_BPS) / 100;
+  const traditionalFee = Number(quote.traditionalFee);
 
-  // Traditional bank wire / money transfer fees typically range from 6% to 8%
-  const traditionalFeePercent = 7;
-  const traditionalFee = parsedAmount * 0.07;
+  const currentRate = Number(quote.rate);
+  const receivedAmount = Number(quote.receivedAmount);
 
+  const estimatedSavings = Number(quote.savings);
+  const estimatedSavingsInTarget = Number(quote.savingsInTarget);
   // Rate lookup, with the reverse direction derived for swapped corridors
   const currentRate = getExchangeRate(sourceCurrency, targetCurrency);
   const receivedAmount = netSendAmount * currentRate;
@@ -234,6 +239,13 @@ export default function CurrencyCalculator() {
                 </div>
               </div>
             </div>
+
+            {quote.exceedsLimit && (
+              <p role="alert" className="text-xs font-medium text-amber-700">
+                The maximum per transfer is {currentSource.symbol}
+                {Number(quote.maxAmount).toLocaleString()}. The quote below uses that amount.
+              </p>
+            )}
 
             {/* Presets */}
             <div>
