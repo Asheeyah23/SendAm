@@ -73,7 +73,6 @@ export default function DataTable({
   virtualizeThreshold = 50,
 }) {
   const [sort, setSort] = useState(() => normalizeSort(defaultSort));
-  const [sort, setSort] = useState(defaultSort);
   const [density, setDensity] = useState('default');
   const [measuredHeights, setMeasuredHeights] = useState({});
   const densityConfig = DENSITIES[density];
@@ -401,41 +400,6 @@ export default function DataTable({
     : undefined;
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={isVirtualized ? handleScroll : undefined}
-      style={containerStyles}
-      data-testid="datatable-container"
-      data-virtualized={isVirtualized}
-      className="w-full max-w-full overflow-x-auto bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm focus:outline-none"
-      tabIndex={isVirtualized ? 0 : undefined}
-      aria-label={caption ? `${caption} scrollable view` : undefined}
-    >
-      <table className="min-w-max w-full text-sm text-left text-gray-600 dark:text-gray-300 border-collapse">
-        {caption && <caption className="sr-only">{caption}</caption>}
-        <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800 sticky top-0 z-10">
-          <tr>
-            {columns.map((col, idx) => (
-              <th
-                key={idx}
-                scope="col"
-                aria-sort={ariaSortFor(col)}
-                className="px-4 sm:px-6 py-4 whitespace-nowrap bg-gray-50 dark:bg-slate-800"
-              >
-                {col.sortable ? (
-                  renderSortButton(col)
-                ) : (
-                  col.header
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {/* Top virtual spacer */}
-          {isVirtualized && topPadding > 0 && (
-            <tr style={{ height: `${topPadding}px` }} aria-hidden="true">
-              <td colSpan={columns.length} style={{ padding: 0, border: 'none' }} />
     <div className="w-full min-w-0">
       <div className="flex justify-end mb-3">
         <div
@@ -483,22 +447,7 @@ export default function DataTable({
                   className="px-4 sm:px-6 py-4 whitespace-nowrap bg-gray-50 dark:bg-slate-800"
                 >
                   {col.sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSort(col)}
-                      className={`inline-flex items-center gap-1.5 uppercase font-semibold ${FOCUSABLE_HEADER}`}
-                    >
-                      {col.header}
-                      {sort?.key === sortKeyOf(col) ? (
-                        sort.direction === 'ascending' ? (
-                          <ArrowUp size={14} aria-hidden="true" />
-                        ) : (
-                          <ArrowDown size={14} aria-hidden="true" />
-                        )
-                      ) : (
-                        <ChevronsUpDown size={14} aria-hidden="true" />
-                      )}
-                    </button>
+                    renderSortButton(col)
                   ) : (
                     col.header
                   )}

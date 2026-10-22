@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { describe, it, expect } from 'vitest';
-import Wallets, { getWalletXlmBalance, calculateTxCapacity, LOW_RESERVE_THRESHOLD_XLM } from './Wallets';
+import Wallets from './Wallets';
+import { getWalletXlmBalance, calculateTxCapacity, LOW_RESERVE_THRESHOLD_XLM } from '@/lib/walletReserve';
 import { server } from '@/mocks/server';
 
 const renderPage = () => render(

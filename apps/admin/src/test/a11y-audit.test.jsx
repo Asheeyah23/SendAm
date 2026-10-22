@@ -1,3 +1,4 @@
+import { maskPhoneNumber } from '@shared/maskPhoneNumber.js';
 import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -320,7 +321,7 @@ describe('admin WCAG 2.2 AAA audit', () => {
       renderAt(path);
       const table = await screen.findByRole('table');
       const user = userEvent.setup();
-      const row = within(table).getByText(phone).closest('tr');
+      const row = within(table).getByText(maskPhoneNumber(phone)).closest('tr');
       const triggerEl = within(row).getByRole('button', { name: trigger });
       await user.click(triggerEl);
       const dialog = await screen.findByRole('dialog');
