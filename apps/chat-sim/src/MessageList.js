@@ -1,8 +1,72 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 
 const SWIPE_REPLY_THRESHOLD = 56;
 const MAX_SWIPE_DISTANCE = 96;
+
+// ── In-chat search (#786) ─────────────────────────────────────────────────────
+
+/** Ids of the messages whose text contains `query`, in message order. */
+export function findMessageMatches(messages, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return [];
+  return (messages || [])
+    .filter((m) => String(m.text || '').toLowerCase().includes(needle))
+    .map((m) => m.id);
+}
+
+/**
+ * Split `text` into segments for highlight rendering: `{ text, match }` parts
+ * in order, where `match: true` marks a case-insensitive occurrence of `query`.
+ */
+export function splitForHighlight(text, query) {
+  const source = String(text || '');
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return [{ text: source, match: false }];
+  const lower = source.toLowerCase();
+  const parts = [];
+  let i = 0;
+  for (;;) {
+    const at = lower.indexOf(needle, i);
+    if (at === -1) {
+      if (i < source.length) parts.push({ text: source.slice(i), match: false });
+      break;
+    }
+    if (at > i) parts.push({ text: source.slice(i, at), match: false });
+    parts.push({ text: source.slice(at, at + needle.length), match: true });
+    i = at + needle.length;
+  }
+  return parts.length > 0 ? parts : [{ text: source, match: false }];
+}
+
+/** Bubble text with search matches highlighted in yellow. */
+function MessageText({ item, isUser, searchQuery, isActiveMatch }) {
+  const base = isUser ? 'text-white' : 'text-gray-900';
+  const segments = splitForHighlight(item.text, searchQuery);
+  if (!searchQuery || segments.every((s) => !s.match)) {
+    return <Text className={base}>{item.text}</Text>;
+  }
+  return (
+    <Text className={base} testID={`highlighted-text-${item.id}`}>
+      {segments.map((segment, idx) =>
+        segment.match ? (
+          <Text
+            key={idx}
+            testID={isActiveMatch ? 'match-active' : 'match'}
+            style={{
+              backgroundColor: isActiveMatch ? '#facc15' : '#fde047',
+              color: '#111827',
+            }}
+          >
+            {segment.text}
+          </Text>
+        ) : (
+          <Text key={idx}>{segment.text}</Text>
+        ),
+      )}
+    </Text>
+  );
+}
 
 export function parseQuickReplies(message) {
   if (!message || message.sender !== 'bot') return [];
@@ -67,7 +131,7 @@ function pointFromEvent(event) {
 // A message bubble that can be dragged horizontally to the right to quote it.
 // Swiping reveals a reply arrow; releasing past the threshold notifies the
 // parent and springs the bubble back into place.
-function SwipeableBubble({ item, isUser, onReply }) {
+function SwipeableBubble({ item, isUser, onReply, searchQuery, isActiveMatch }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const startX = useRef(0);
   const startY = useRef(0);
@@ -151,7 +215,12 @@ function SwipeableBubble({ item, isUser, onReply }) {
               </Text>
             </View>
           )}
-          <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+          <MessageText
+            item={item}
+            isUser={isUser}
+            searchQuery={searchQuery}
+            isActiveMatch={isActiveMatch}
+          />
         </View>
       </Animated.View>
       {swiping && (
@@ -180,16 +249,40 @@ export default function MessageList({
   disabledReplies = {},
   sending = false,
   onReply,
+  searchQuery = '',
+  activeMatchId = null,
 }) {
+  const scrollRef = useRef(null);
+  const rowPositionsRef = useRef({});
+
+  // Jump navigation (#786): when the active match changes, scroll its bubble
+  // into view using the row offsets recorded by onLayout. Best-effort — in
+  // environments where layout never fires (tests), this is simply a no-op.
+  useEffect(() => {
+    if (!activeMatchId) return;
+    const y = rowPositionsRef.current[activeMatchId];
+    if (typeof y === 'number' && scrollRef.current?.scrollTo) {
+      scrollRef.current.scrollTo({ y: Math.max(y - 80, 0), animated: true });
+    }
+  }, [activeMatchId]);
+
   return (
-    <ScrollView contentContainerClassName="px-3 py-2 gap-2">
+    <ScrollView ref={scrollRef} contentContainerClassName="px-3 py-2 gap-2">
       {messages.map((item) => {
         const isUser = item.sender === 'user';
         const quickReplies = !isUser ? parseQuickReplies(item) : [];
         const isMsgDisabled = Boolean(disabledReplies[item.id]) || sending;
+        const isActiveMatch = activeMatchId === item.id;
 
         return (
-          <View key={item.id} className="gap-1.5">
+          <View
+            key={item.id}
+            className="gap-1.5"
+            testID={isActiveMatch ? `active-match-row-${item.id}` : undefined}
+            onLayout={(e) => {
+              rowPositionsRef.current[item.id] = e.nativeEvent.layout.y;
+            }}
+          >
             <View
               testID={`bubble-${item.sender}`}
               className={
@@ -230,10 +323,21 @@ export default function MessageList({
                 </View>
               )}
               {Boolean(item.text) && (
-                <Text className={isUser ? 'text-white' : 'text-gray-900'}>{item.text}</Text>
+                <MessageText
+                  item={item}
+                  isUser={isUser}
+                  searchQuery={searchQuery}
+                  isActiveMatch={isActiveMatch}
+                />
               )}
             </View>
-            <SwipeableBubble item={item} isUser={isUser} onReply={onReply} />
+            <SwipeableBubble
+              item={item}
+              isUser={isUser}
+              onReply={onReply}
+              searchQuery={searchQuery}
+              isActiveMatch={isActiveMatch}
+            />
 
             {/* WhatsApp interactive quick-reply pill buttons */}
             {quickReplies.length > 0 && (
