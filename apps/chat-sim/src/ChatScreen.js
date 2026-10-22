@@ -23,7 +23,15 @@ import { voiceService } from './engine/voiceService';
 import { API_BASE_URL } from './config';
 import { buildSep7PaymentUri, isValidSep7Uri, normalizeSep7Uri } from './paymentRequest';
 
+export const NETWORK_PROFILES = [
+  { id: 'no-throttling', label: 'No Throttling (0ms)', delayMs: 0, offline: false, badgeLabel: 'Online', badgeColor: 'bg-emerald-100 text-emerald-800' },
+  { id: 'fast-3g', label: 'Fast 3G (500ms)', delayMs: 500, offline: false, badgeLabel: 'Fast 3G', badgeColor: 'bg-blue-100 text-blue-800' },
+  { id: 'slow-3g', label: 'Slow 3G (2000ms)', delayMs: 2000, offline: false, badgeLabel: 'Slow 3G', badgeColor: 'bg-amber-100 text-amber-800' },
+  { id: 'offline', label: 'Offline (Error)', delayMs: 0, offline: true, badgeLabel: 'Offline', badgeColor: 'bg-red-100 text-red-800' },
+];
+
 export function formatTranscriptText(messages, phoneNumber) {
+
   const lines = [
     '=== SendAm Chat Transcript ===',
     `Phone Number: ${phoneNumber || 'Unknown'}`,
@@ -135,6 +143,8 @@ export default function ChatScreen() {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const recordTimerRef = useRef(null);
   const [disabledReplies, setDisabledReplies] = useState({});
+  const [networkProfile, setNetworkProfile] = useState(NETWORK_PROFILES[0]);
+  const [networkDropdownOpen, setNetworkDropdownOpen] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [paymentLink, setPaymentLink] = useState('');
   const [qrError, setQrError] = useState('');
@@ -430,6 +440,14 @@ export default function ChatScreen() {
     }
 
     try {
+      if (networkProfile.offline) {
+        throw new Error('Network error: Device is offline');
+      }
+
+      if (networkProfile.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, networkProfile.delayMs));
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/sim/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -549,7 +567,15 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View className="flex-row items-center justify-between px-3 py-2 border-b border-gray-200">
-        <Text className="text-base font-semibold text-gray-900">{phoneNumber}</Text>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-base font-semibold text-gray-900">{phoneNumber}</Text>
+          <View
+            testID="connection-status-badge"
+            className={`px-2 py-0.5 rounded-full ${networkProfile.badgeColor}`}
+          >
+            <Text className="text-xs font-semibold">{networkProfile.badgeLabel}</Text>
+          </View>
+        </View>
         <View className="flex-row items-center gap-2">
           <Pressable
             testID="export-transcript-button"
@@ -587,6 +613,18 @@ export default function ChatScreen() {
           </Text>
         </View>
         <View className="flex-row items-center gap-2">
+          {/* Network Latency Selector Dropdown */}
+          <Pressable
+            testID="network-simulator-dropdown-trigger"
+            onPress={() => setNetworkDropdownOpen((prev) => !prev)}
+            className="px-2 py-1 bg-white border border-gray-300 rounded flex-row items-center gap-1"
+          >
+            <Text className="text-xs font-medium text-gray-800" testID="network-selected-label">
+              {networkProfile.label}
+            </Text>
+            <Text className="text-xs text-gray-500">▼</Text>
+          </Pressable>
+
           <Pressable
             testID="toggle-voice-synth"
             onPress={() => setVoiceSynthesizeEnabled((prev) => !prev)}
@@ -609,6 +647,40 @@ export default function ChatScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* Network Profile Dropdown Menu */}
+      {networkDropdownOpen && (
+        <View
+          testID="network-simulator-menu"
+          className="bg-white border-b border-gray-200 px-3 py-2 flex-row flex-wrap gap-2"
+        >
+          {NETWORK_PROFILES.map((profile) => (
+            <Pressable
+              key={profile.id}
+              testID={`network-profile-option-${profile.id}`}
+              onPress={() => {
+                setNetworkProfile(profile);
+                setNetworkDropdownOpen(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg border ${
+                networkProfile.id === profile.id
+                  ? 'border-indigo-600 bg-indigo-50'
+                  : 'border-gray-200 bg-white'
+              }`}
+            >
+              <Text
+                className={`text-xs ${
+                  networkProfile.id === profile.id
+                    ? 'font-bold text-indigo-700'
+                    : 'text-gray-700'
+                }`}
+              >
+                {profile.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* Dev Inspector Drawer */}
       {devModeOpen && (
