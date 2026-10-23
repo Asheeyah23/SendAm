@@ -63,7 +63,7 @@ export default defineConfig({
       ],
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,avif,woff2,woff}'],
       runtimeCaching: [
         {
           urlPattern: /^https:\/\/fonts\./,
@@ -77,7 +77,7 @@ export default defineConfig({
           },
         },
         {
-          urlPattern: /\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot)$/,
+          urlPattern: /\.(?:png|jpg|jpeg|gif|svg|webp|avif|ico|css|js|woff|woff2|ttf|eot)$/,
           handler: 'StaleWhileRevalidate',
           options: {
             cacheName: 'sendam-assets',
@@ -92,7 +92,7 @@ export default defineConfig({
         },
       ],
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot|json|xml)$/],
+      navigateFallbackDenylist: [/\.(?:png|jpg|jpeg|gif|svg|webp|avif|ico|css|js|woff|woff2|ttf|eot|json|xml)$/],
       cleanupOutdatedCaches: true,
       clientsClaim: true,
       skipWaiting: true,
