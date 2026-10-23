@@ -13,6 +13,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import MessageList, { parseListMessage, parseQuickReplies } from './MessageList';
 import MessageList, { parseQuickReplies } from './MessageList';
 import EmojiPicker from './EmojiPicker';
 import usePolling from './usePolling';
@@ -213,6 +214,10 @@ export default function ChatScreen() {
   const recordTimerRef = useRef(null);
   const recordedPress = useRef(false);
   const [disabledReplies, setDisabledReplies] = useState({});
+  // The open WhatsApp list-message drawer: { list, messageId } | null, plus
+  // the id of the radio-selected row inside it.
+  const [listDrawer, setListDrawer] = useState(null);
+  const [listSelectedRowId, setListSelectedRowId] = useState(null);
   const [networkProfile, setNetworkProfile] = useState(NETWORK_PROFILES[0]);
   const [networkDropdownOpen, setNetworkDropdownOpen] = useState(false);
   const [qrModalVisible, setQrModalVisible] = useState(false);
@@ -242,7 +247,11 @@ export default function ChatScreen() {
   }, [messages]);
 
   const latestQuickReplies = useMemo(() => {
-    return latestBotMessage ? parseQuickReplies(latestBotMessage) : [];
+    if (!latestBotMessage) return [];
+    // A list message opens through its own drawer; its JSON text is not a
+    // menu for the quick-reply regex to chew on.
+    if (parseListMessage(latestBotMessage)) return [];
+    return parseQuickReplies(latestBotMessage);
   }, [latestBotMessage]);
 
   useEffect(() => {
@@ -297,6 +306,8 @@ export default function ChatScreen() {
     setSending(false);
     setIsListening(false);
     setDisabledReplies({});
+    setListDrawer(null);
+    setListSelectedRowId(null);
     setReplyTo(null);
     cancelVoiceRecording();
     setAttachmentMenuOpen(false);
@@ -380,6 +391,29 @@ export default function ChatScreen() {
       setDisabledReplies((prev) => ({ ...prev, [messageId]: payload }));
     }
     handleSend(payload);
+  }
+
+  function handleOpenList(list, messageId) {
+    if (sending || (messageId && disabledReplies[messageId])) return;
+    setListSelectedRowId(null);
+    setListDrawer({ list, messageId });
+  }
+
+  function handleCloseList() {
+    setListDrawer(null);
+    setListSelectedRowId(null);
+  }
+
+  function handleListSubmit() {
+    if (!listDrawer || !listSelectedRowId) return;
+    const row = listDrawer.list.sections
+      .flatMap((section) => section.rows)
+      .find((candidate) => candidate.id === listSelectedRowId);
+    if (!row) return;
+    const { messageId } = listDrawer;
+    handleCloseList();
+    // WhatsApp shows the chosen row's title as the user's reply.
+    handleQuickReply(row.title, messageId);
   }
 
   function appendBotReplies(replies) {
@@ -1077,6 +1111,7 @@ export default function ChatScreen() {
         <MessageList
           messages={messages}
           onQuickReply={handleQuickReply}
+          onOpenList={handleOpenList}
           disabledReplies={disabledReplies}
           sending={sending}
           onReply={setReplyTo}
@@ -1355,6 +1390,106 @@ export default function ChatScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {/* WhatsApp list-message modal drawer (#784): sections, row descriptions
+          and radio selection, submitted through the same quick-reply path. */}
+      <Modal
+        visible={Boolean(listDrawer)}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseList}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <Pressable
+            testID="list-drawer-backdrop"
+            className="flex-1"
+            onPress={handleCloseList}
+          />
+          {listDrawer && (
+            <View testID="list-drawer" className="bg-white rounded-t-2xl max-h-[75%]">
+              <View className="items-center pt-2">
+                <View className="w-10 h-1 rounded-full bg-gray-300" />
+              </View>
+              <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
+                <Text className="text-base font-semibold text-gray-900">
+                  {listDrawer.list.buttonLabel}
+                </Text>
+                <Pressable
+                  testID="list-drawer-close"
+                  accessibilityRole="button"
+                  onPress={handleCloseList}
+                  className="rounded-full px-2 py-0.5 active:bg-gray-100"
+                >
+                  <Text className="text-lg text-gray-500">✕</Text>
+                </Pressable>
+              </View>
+              <ScrollView className="px-2">
+                {listDrawer.list.sections.map((section) => (
+                  <View key={section.id} className="pb-1">
+                    {section.title ? (
+                      <Text
+                        testID={`list-section-${section.id}`}
+                        className="px-2 pt-3 pb-1 text-xs font-semibold uppercase text-emerald-700"
+                      >
+                        {section.title}
+                      </Text>
+                    ) : null}
+                    {section.rows.map((row) => {
+                      const isSelected = listSelectedRowId === row.id;
+                      return (
+                        <Pressable
+                          key={row.id}
+                          testID={`list-row-${row.id}`}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          onPress={() => setListSelectedRowId(row.id)}
+                          className="flex-row items-center justify-between gap-3 px-2 py-2.5 border-b border-gray-100 active:bg-gray-50"
+                        >
+                          <View className="flex-1">
+                            <Text className="text-sm font-medium text-gray-900">
+                              {row.title}
+                            </Text>
+                            {row.description ? (
+                              <Text className="text-xs text-gray-500">{row.description}</Text>
+                            ) : null}
+                          </View>
+                          <View
+                            testID={`list-row-radio-${row.id}`}
+                            className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
+                              isSelected ? 'border-emerald-600' : 'border-gray-300'
+                            }`}
+                          >
+                            {isSelected ? (
+                              <View className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+              </ScrollView>
+              <View className="px-4 py-3 border-t border-gray-200">
+                <Pressable
+                  testID="list-drawer-send"
+                  accessibilityRole="button"
+                  disabled={!listSelectedRowId}
+                  onPress={handleListSubmit}
+                  className={`rounded-full py-2.5 items-center ${
+                    listSelectedRowId ? 'bg-emerald-600 active:bg-emerald-700' : 'bg-gray-200'
+                  }`}
+                >
+                  <Text
+                    className={`font-semibold ${
+                      listSelectedRowId ? 'text-white' : 'text-gray-400'
+                    }`}
+                  >
+                    Send
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
     </View>
   );
 
