@@ -14,7 +14,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import MessageList, { parseListMessage, parseQuickReplies } from './MessageList';
-import MessageList, { parseQuickReplies } from './MessageList';
 import EmojiPicker from './EmojiPicker';
 import usePolling from './usePolling';
 import {
@@ -1490,6 +1489,8 @@ export default function ChatScreen() {
               </View>
             </View>
           )}
+        </View>
+      </Modal>
     </View>
   );
 

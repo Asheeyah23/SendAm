@@ -216,6 +216,9 @@ describe('parseListMessage', () => {
     expect(JSON.stringify(renderer.toJSON())).not.toContain('"sections"');
     // And its JSON text must not leak numbered quick-reply pills.
     expect(root.findAllByProps({ testID: 'quick-replies-container' })).toHaveLength(0);
+  });
+});
+
 function findByTestID(tree, testID) {
   if (Array.isArray(tree)) {
     for (const node of tree) {
