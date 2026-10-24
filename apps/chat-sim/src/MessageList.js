@@ -1,5 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Animated,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+
+function VectorCheckmark({ color, size = 11 }) {
+  return (
+    <View
+      style={{
+        width: size * 0.38,
+        height: size * 0.72,
+        borderBottomWidth: 1.8,
+        borderRightWidth: 1.8,
+        borderColor: color,
+        transform: [{ rotate: '45deg' }],
+        marginRight: 1,
+        marginBottom: 2,
+      }}
+    />
+  );
+}
+
+function VectorDoubleCheckmark({ color, size = 11 }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 2 }}>
+      <VectorCheckmark color={color} size={size} />
+      <View style={{ marginLeft: -2 }}>
+        <VectorCheckmark color={color} size={size} />
+      </View>
+    </View>
+  );
+}
 
 const WAVEFORM_BARS = [8, 14, 20, 12, 24, 18, 10, 22, 26, 16, 20, 14, 18, 10, 16, 12, 22, 14, 8];
 
@@ -59,7 +94,6 @@ function VoiceBubble({ item, isUser }) {
   return (
     <View className="flex-col gap-1 w-64 py-1" testID={`voice-note-${item.id}`}>
       <View className="flex-row items-center gap-2">
-        {/* Play/Pause Button */}
         <Pressable
           testID="voice-play-button"
           onPress={togglePlay}
@@ -70,7 +104,6 @@ function VoiceBubble({ item, isUser }) {
           </Text>
         </Pressable>
 
-        {/* Waveform Scrubber */}
         <View className="flex-1 flex-row items-center justify-between h-8 px-1" testID="waveform-scrubber">
           {WAVEFORM_BARS.map((height, idx) => {
             const barFraction = idx / (WAVEFORM_BARS.length - 1);
@@ -95,7 +128,6 @@ function VoiceBubble({ item, isUser }) {
           })}
         </View>
 
-        {/* Playback Speed Pill */}
         <Pressable
           testID="voice-speed-pill"
           onPress={cycleSpeed}
@@ -107,7 +139,6 @@ function VoiceBubble({ item, isUser }) {
         </Pressable>
       </View>
 
-      {/* Timestamp & Indicator */}
       <View className="flex-row justify-between items-center px-1">
         <Text className={`text-[10px] ${isUser ? 'text-green-100' : 'text-gray-600'}`} testID="voice-time-display">
           {formatTime(currentTime)} / {formatTime(totalDuration)}
@@ -117,6 +148,158 @@ function VoiceBubble({ item, isUser }) {
         </Text>
       </View>
     </View>
+  );
+}
+
+function VectorClock({ color, size = 10 }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 1.2,
+        borderColor: color,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 1,
+      }}
+    >
+      <View
+        style={{
+          width: 1.2,
+          height: size * 0.38,
+          backgroundColor: color,
+          position: 'absolute',
+          top: 1.8,
+        }}
+      />
+      <View
+        style={{
+          width: size * 0.3,
+          height: 1.2,
+          backgroundColor: color,
+          position: 'absolute',
+          right: 1.8,
+          top: size * 0.44,
+        }}
+      />
+    </View>
+  );
+}
+
+const USER_META_COLOR = '#ebebebff';
+const BOT_META_COLOR = '#6b7280';
+const READ_RECEIPT_COLOR = '#4a75bfff'; // Solid WhatsApp Blue
+
+function formatTime(timestamp) {
+  if (!timestamp) return null;
+  try {
+    const date = new Date(timestamp);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+  } catch {
+    // fallback
+  }
+  return String(timestamp);
+}
+
+function ReceiptStatus({ status }) {
+  const scale = useRef(new Animated.Value(0.7)).current;
+  const opacity = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    let isMounted = true;
+    async function runAnimation() {
+      let reduceMotion = false;
+      try {
+        if (AccessibilityInfo?.isReduceMotionEnabled) {
+          reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
+        }
+      } catch {
+        // Fallback gracefully
+      }
+
+      if (!isMounted) return;
+
+      if (reduceMotion) {
+        scale.setValue(1);
+        opacity.setValue(1);
+        return;
+      }
+
+      scale.setValue(0.7);
+      opacity.setValue(0.5);
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 6,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    runAnimation();
+    return () => {
+      isMounted = false;
+    };
+  }, [status, scale, opacity]);
+
+  const normalColor = USER_META_COLOR;
+  const readColor = READ_RECEIPT_COLOR;
+  let content = null;
+
+  switch (status) {
+    case 'pending':
+      content = (
+        <View testID="status-pending" style={{ marginLeft: 2 }}>
+          <VectorClock color={normalColor} />
+        </View>
+      );
+      break;
+    case 'sent':
+      content = (
+        <View testID="status-sent" style={{ marginLeft: 2 }}>
+          <VectorCheckmark color={normalColor} />
+        </View>
+      );
+      break;
+    case 'delivered':
+      content = (
+        <View testID="status-delivered">
+          <VectorDoubleCheckmark color={normalColor} />
+        </View>
+      );
+      break;
+    case 'read':
+      content = (
+        <View testID="status-read">
+          <VectorDoubleCheckmark color={readColor} />
+        </View>
+      );
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <Animated.View
+      style={{
+        transform: [{ scale }],
+        opacity,
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+    >
+      {content}
+    </Animated.View>
   );
 }
 
@@ -311,6 +494,8 @@ function SwipeableBubble({ item, isUser, onReply, darkMode = false }) {
     resetBubble();
   };
 
+  const hasMeta = Boolean(item.timestamp || (isUser && item.status));
+
   return (
     <View className={`relative ${isUser ? 'self-end' : 'self-start'} max-w-[80%]`}>
       <Animated.View
@@ -385,6 +570,21 @@ function SwipeableBubble({ item, isUser, onReply, darkMode = false }) {
                 {item.text}
               </Text>
             )
+          )}
+          {hasMeta && (
+            <View className="flex-row items-center justify-end gap-1 mt-1">
+              {item.timestamp ? (
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: isUser ? USER_META_COLOR : BOT_META_COLOR,
+                  }}
+                >
+                  {formatTime(item.timestamp)}
+                </Text>
+              ) : null}
+              {isUser && item.status ? <ReceiptStatus status={item.status} /> : null}
+            </View>
           )}
         </View>
       </Animated.View>
