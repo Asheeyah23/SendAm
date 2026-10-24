@@ -3,6 +3,7 @@ import { Menu } from 'lucide-react';
 import { Outlet, useLocation } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import AdminSidebar from './AdminSidebar.jsx';
+import Breadcrumbs from './Breadcrumbs.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import GlobalSearchModal from './GlobalSearchModal.jsx';
 
@@ -48,6 +49,7 @@ export default function AdminLayout() {
             <ThemeToggle />
           </div>
           <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <Breadcrumbs />
             <Outlet />
           </main>
         </div>
