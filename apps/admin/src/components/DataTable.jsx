@@ -671,18 +671,21 @@ export default function DataTable({
         style={containerStyles}
         data-testid="datatable-container"
         data-virtualized={isVirtualized}
+        data-virtual-total={totalRows}
+        data-virtual-rendered={visibleRows.length}
         data-density={density}
         className="w-full max-w-full overflow-x-auto bg-white dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm focus:outline-none"
         tabIndex={isVirtualized ? 0 : undefined}
-        // A keyboard-focusable scroll container needs a role and a name so
-        // screen readers announce what receives focus (WCAG 2.1.1, 4.1.2).
         role={isVirtualized ? 'region' : undefined}
         aria-label={isVirtualized ? `${caption || 'Table'} scrollable view` : undefined}
       >
-      <table className="min-w-max w-full text-sm text-left text-gray-600 dark:text-gray-300 border-collapse">
+      <table
+        className="min-w-max w-full text-sm text-left text-gray-600 dark:text-gray-300 border-collapse"
+        aria-rowcount={isVirtualized ? totalRows + 1 : undefined}
+      >
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead ref={headerRef} className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-800 sticky top-0 z-10">
-          <tr>
+          <tr aria-rowindex={isVirtualized ? 1 : undefined}>
             {visibleColumns.map((col, idx) => (
               <th
                 key={idx}
@@ -721,6 +724,7 @@ export default function DataTable({
                   else rowRefs.current.delete(absoluteIdx);
                 }}
                 data-row-index={absoluteIdx}
+                aria-rowindex={isVirtualized ? absoluteIdx + 2 : undefined}
                 style={{ height: `${effectiveRowHeight}px` }}
                 className={`border-b border-gray-50 dark:border-slate-800/60 hover:bg-gray-50/50 dark:hover:bg-slate-800/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-gray-100 dark:focus:bg-slate-800 ${rowClassName}`}
                 onClick={isClickable ? () => onRowClick(row) : undefined}
